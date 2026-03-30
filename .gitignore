@@ -1,1 +1,70 @@
+# 1. 核心编译产物 (Core Build Artifacts)
+# 忽略所有目标文件
+*.o
+*.obj
+# 忽略所有可执行文件
+*.exe
+*.out
+*.app
+# 忽略所有静态库和动态库
+*.a
+*.lib
+*.so
+*.so.*
+*.dll
+*.dylib
+# 忽略预编译头文件
+*.gch
+*.pch
+# 忽略调试符号文件
+*.pdb
+*.dSYM/
+# 忽略依赖文件
+*.d
+
+# 2. 构建系统 (Build Systems)
 build
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cbp
+CMakeLists.txt.user
+# Meson
+meson-logs/
+meson-private/
+# Bazel
+bazel-*
+
+# 3. IDE 和编辑器 (IDE and Editors)
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.opensdf
+*.sdf
+*.suo
+ipch/
+GeneratedFiles/
+Debug/
+Release/
+x64/
+# CLion / IntelliJ IDEA
+.idea/
+cmake-build-*/
+# VS Code
+.vscode/
+# Qt Creator
+*.pro.user*
+*.Debug
+*.Release
+moc_*
+.qmake.stash
+
+# 4. 操作系统特定文件 (OS-specific files)
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
+# Linux
+*.swp
