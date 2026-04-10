@@ -11,6 +11,11 @@ typedef struct {
     uint16_t total_length;
     uint16_t identification;
     uint16_t flags_offset;
+    uint8_t  flags;
+    uint8_t  reserved;
+    uint8_t  df;
+    uint8_t  mf;
+    uint16_t fragment_offset;
     uint8_t  ttl;
     uint8_t  protocol;
     uint16_t checksum;

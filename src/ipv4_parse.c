@@ -15,6 +15,15 @@ int parse_ipv4(const uint8_t *packet, int length, IPv4Header *ip) {
     ip->total_length = (packet[2] << 8) | packet[3];
     ip->identification = (packet[4] << 8) | packet[5];
     ip->flags_offset = (packet[6] << 8) | packet[7];
+    
+    // Extract flags and fragment offset from flags_offset field
+    // Flags are bits 0-2 of the high byte (bit 15-13 of the 16-bit field)
+    ip->reserved = (ip->flags_offset & 0x8000) >> 15;  // Bit 0 (MSB)
+    ip->df = (ip->flags_offset & 0x4000) >> 14;        // Bit 1 (DF flag)
+    ip->mf = (ip->flags_offset & 0x2000) >> 13;        // Bit 2 (MF flag)
+    // Fragment offset is bits 3-15 (lower 13 bits)
+    ip->fragment_offset = ip->flags_offset & 0x1fff;
+    
     ip->ttl = packet[8];
     ip->protocol = packet[9];
     ip->checksum = (packet[10] << 8) | packet[11];
@@ -39,6 +48,8 @@ void print_ipv4_info(const IPv4Header *ip) {
            ip->version, ip->ihl * 4, ip->tos);
     printf("     总长度: %d字节, 标识: 0x%04x\n",
            ip->total_length, ip->identification);
+    printf("     标志: DF=%d, MF=%d, 分片偏移: %d\n",
+           ip->df, ip->mf, ip->fragment_offset);
     printf("     TTL: %d, 协议: ", ip->ttl);
 
     switch (ip->protocol) {
