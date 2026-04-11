@@ -17,6 +17,7 @@ set(SOURCES
     src/packet_parser.c
     src/tcp_handler.c
     src/udp_handler.c
+    src/icmp_handler.c
     src/ethernet_parse.c
     src/ipv4_parse.c
     src/utils.c
@@ -27,6 +28,7 @@ set(HEADERS
     src/packet_parser.h
     src/tcp_handler.h
     src/udp_handler.h
+    src/icmp_handler.h
     src/ethernet_parse.h
     src/ipv4_parse.h
     src/utils.h

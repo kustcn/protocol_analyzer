@@ -4,6 +4,7 @@
 #include "ipv4_parse.h"
 #include "tcp_handler.h"
 #include "udp_handler.h"
+#include "icmp_handler.h"
 #include "utils.h"
 #include <stdio.h>
 #include <string.h>
@@ -61,7 +62,7 @@ int init_pcap(const char *device, const char *filter_exp, int timeout, pcap_t **
 
 void packet_loop(pcap_t *handle, int count, PacketHandler handler, void *user_data) {
     struct pcap_pkthdr *header;
-    const u_char *packet;
+    const unsigned char *packet;
     int result;
 
     printf("\n开始捕获数据包 (Ctrl+C 停止)...\n");
@@ -161,6 +162,16 @@ void parse_packet(const uint8_t *packet, int length, const struct pcap_pkthdr *h
         }
 
         print_udp_info(&udp);
+
+    } else if (ip.protocol == IP_PROTO_ICMP) {
+        ICMPHeader icmp;
+        int icmp_len = parse_icmp(transport_packet, transport_len, &icmp);
+        if (icmp_len < 0) {
+            printf("ICMP头部解析失败\n");
+            return;
+        }
+
+        print_icmp_info(&icmp, transport_packet + icmp_len, transport_len - icmp_len);
 
     } else {
         printf("     不支持的传输层协议: %d\n", ip.protocol);
