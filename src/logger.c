@@ -72,28 +72,12 @@ void logger_close(void) {
 }
 
 void logger_log(LogLevel level, const char *format, ...) {
-    // Check if logger is enabled and level is sufficient
-    if (!g_logger.enabled || level < g_logger.level) {
-        return;
-    }
 
     // Get current timestamp
     time_t now = time(NULL);
     struct tm *tm_info = localtime(&now);
     char time_str[64];
     strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", tm_info);
-
-    // Format the message
-    va_list args;
-    va_start(args, format);
-
-    // Write to log file
-    fprintf(g_logger.file, "[%s] [%s] ", time_str, log_level_to_string(level));
-    vfprintf(g_logger.file, format, args);
-    fprintf(g_logger.file, "\n");
-
-    // Flush to ensure data is written
-    fflush(g_logger.file);
 
     // Also print to terminal if enabled
     if (g_logger.print_to_console) {
@@ -107,7 +91,23 @@ void logger_log(LogLevel level, const char *format, ...) {
         fflush(stderr);
         
         va_end(args2);
+    }    
+    // Check if logger is enabled and level is sufficient
+    if (!g_logger.enabled || level < g_logger.level) {
+        return;
     }
+
+    // Format the message
+    va_list args;
+    va_start(args, format);
+
+    // Write to log file
+    fprintf(g_logger.file, "[%s] [%s] ", time_str, log_level_to_string(level));
+    vfprintf(g_logger.file, format, args);
+    fprintf(g_logger.file, "\n");
+
+    // Flush to ensure data is written
+    fflush(g_logger.file);
 
     va_end(args);
 }
