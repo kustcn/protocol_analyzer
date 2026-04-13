@@ -1,3 +1,9 @@
+# CHANGE LOG
+
+## 2026-04-13
+
+Added log file logging functionality
+
 ## 2026-04-11
 
 Added ICMP protocol support to packet parser

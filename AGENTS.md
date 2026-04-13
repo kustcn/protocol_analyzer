@@ -10,13 +10,15 @@ protocol_analyzer/
 ├── include/
 │   └── common.h            # 通用定义
 ├── src/
-│   ├── main.c              # 入口, CLI参数解析
-│   ├── packet_parser.c     # 数据包解析主逻辑
-│   ├── ethernet_parse.c    # 以太网帧解析
+│   ├── main.c             # 入口, CLI参数解析
+│   ├── packet_parser.c    # 数据包解析主逻辑
+│   ├── ethernet_parse.c   # 以太网帧解析
 │   ├── ipv4_parse.c       # IPv4头部解析
 │   ├── tcp_handler.c      # TCP协议+三次握手
 │   ├── udp_handler.c      # UDP协议解析
 │   └── utils.c            # 工具函数
+│   ├── icmp_handler.c     # ICMP协议解析
+│   ├── logger.c           #  日志记录功能
 └── build/
     └── protocol_analyzer  # 可执行文件
 ```
@@ -24,7 +26,9 @@ protocol_analyzer/
 ## WHERE TO LOOK
 | Task | Location | Notes |
 |------|----------|-------|
-| 添加新协议 | src/ | 参考tcp_handler.c模式 |
+| 添加新协议 | src/ | 参考tcp_handler.c和icmp_handler.c模式 |
+| ICMP协议支持 | src/icmp_handler.c | ICMP协议解析 |
+| 日志系统 | src/logger.c | 日志记录功能 |
 | 修改CLI | src/main.c | getopt_long参数解析 |
 | CMake配置 | CMakeLists.txt | 添加新源文件 |
 
@@ -35,6 +39,10 @@ protocol_analyzer/
 | parse_tcp | function | tcp_handler.c | TCP解析 |
 | get_tcp_handshake_status | function | tcp_handler.c | 三次握手识别 |
 | parse_udp | function | udp_handler.c | UDP解析 |
+| parse_icmp | function | icmp_handler.c | ICMP解析 |
+| log_message | function | logger.c | 日志记录 |
+| log_error | function | logger.c | 错误日志记录 |
+| log_debug | function | logger.c | 调试日志记录 |
 | parse_ipv4 | function | ipv4_parse.c | IP解析 |
 | parse_ethernet | function | ethernet_parse.c | 以太网解析 |
 
@@ -42,6 +50,7 @@ protocol_analyzer/
 - 头文件: `#ifndef Xxx_H` / `#define Xxx_H` / `#endif`
 - 解析函数: `parse_xxx(packet, length, &header_struct)` 返回头部字节数
 - 打印函数: `print_xxx_info(const xxxHeader *h)` 带下划线命名
+- 日志函数: `log_xxx(...)` 命名规范
 
 ## ANTI-PATTERNS (THIS PROJECT)
 - 禁止使用 `as any`, `@ts-ignore` (C项目无此风险)
