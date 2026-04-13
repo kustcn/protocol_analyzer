@@ -44,9 +44,5 @@ typedef struct {
 
 void print_separator(void);
 void print_timestamp(const struct pcap_pkthdr *hdr);
-void print_ethernet_header(const uint8_t *packet, int length);
-void print_ip_header(struct ip *ip_hdr);
-void print_tcp_flags(uint8_t flags);
-const char* get_tcp_flag_name(uint8_t flag);
 
 #endif
