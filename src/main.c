@@ -1,5 +1,6 @@
 #include "../include/common.h"
 #include "packet_parser.h"
+#include "logger.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,7 @@ void print_usage(const char *program_name) {
     printf("  -f, --filter <过滤器>    BPF过滤器表达式 (如 'tcp', 'udp', 'port 80')\n");
     printf("  -c, --count <数量>       捕获数据包数量 (默认无限)\n");
     printf("  -t, --timeout <毫秒>    超时时间 (默认1000ms)\n");
+    printf("  -l, --log-file <文件>    日志文件路径\n");
     printf("  -v, --verbose            详细输出模式\n");
     printf("  -h, --help               显示此帮助信息\n");
     printf("\n示例:\n");
@@ -20,6 +22,7 @@ void print_usage(const char *program_name) {
     printf("  %s -f 'tcp' -c 5            捕获5个TCP数据包\n", program_name);
     printf("  %s -f 'port 80' -v          捕获HTTP流量并显示详细信息\n", program_name);
     printf("  %s -f 'tcp and port 443'   捕获HTTPS流量\n", program_name);
+    printf("  %s -i eth0 -l capture.log  捕获数据包并记录到日志\n", program_name);
 }
 
 void print_banner(void) {
@@ -91,6 +94,7 @@ int main(int argc, char *argv[]) {
     AppConfig config = {
         .device = NULL,
         .filter_exp = NULL,
+        .log_file = NULL,
         .verbose = 0,
         .count = 0,
         .promiscuous = 1,
@@ -102,6 +106,7 @@ int main(int argc, char *argv[]) {
         {"filter",    required_argument, 0, 'f'},
         {"count",     required_argument, 0, 'c'},
         {"timeout",   required_argument, 0, 't'},
+        {"log-file",  required_argument, 0, 'l'},
         {"verbose",   no_argument,       0, 'v'},
         {"help",      no_argument,       0, 'h'},
         {0, 0, 0, 0}
@@ -110,7 +115,7 @@ int main(int argc, char *argv[]) {
     int opt;
     int option_index = 0;
 
-    while ((opt = getopt_long(argc, argv, "i:f:c:t:vh", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "i:f:c:t:l:vh", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'i':
                 if (strcmp(optarg, "list") == 0) {
@@ -129,6 +134,9 @@ int main(int argc, char *argv[]) {
             case 't':
                 config.timeout = atoi(optarg);
                 break;
+            case 'l':
+                config.log_file = optarg;
+                break;
             case 'v':
                 config.verbose = 1;
                 break;
@@ -144,23 +152,44 @@ int main(int argc, char *argv[]) {
 
     print_banner();
 
+    // Initialize logger
+    if (config.log_file != NULL) {
+        if (logger_init(config.log_file, LOG_LEVEL_DEBUG) < 0) {
+            LOG_ERROR("初始化日志失败");
+            return 1;
+        }
+        LOG_INFO("Logger initialized: %s", config.log_file);
+    }
+
     pcap_t *handle = NULL;
 
     if (init_pcap(config.device, config.filter_exp, config.timeout, &handle) < 0) {
-        fprintf(stderr, "初始化pcap失败\n");
+        LOG_ERROR("初始化pcap失败");
+        logger_close();
         return 1;
     }
 
-    printf("捕获配置:\n");
-    printf("  设备: %s\n", config.device ? config.device : "自动选择");
-    printf("  过滤器: %s\n", config.filter_exp ? config.filter_exp : "无");
-    printf("  捕获数量: %s\n", config.count > 0 ? "有限" : "无限");
-    printf("  超时: %dms\n", config.timeout);
-    printf("\n");
+    LOG_INFO("捕获配置:");
+    LOG_INFO("  设备: %s", config.device ? config.device : "自动选择");
+    LOG_INFO("  过滤器: %s", config.filter_exp ? config.filter_exp : "无");
+    LOG_INFO("  捕获数量: %s", config.count > 0 ? "有限" : "无限");
+    LOG_INFO("  超时: %dms", config.timeout);
+    if (config.log_file) {
+        LOG_INFO("  日志文件: %s", config.log_file);
+    }
+
+    LOG_INFO("Capture started - Device: %s, Filter: %s, Count: %d", 
+             config.device ? config.device : "auto",
+             config.filter_exp ? config.filter_exp : "none",
+             config.count);
 
     packet_loop(handle, config.count, parse_packet, NULL);
 
     pcap_close(handle);
+    
+    LOG_INFO("Capture completed");
+    logger_close();
+    
     printf("\n分析完成.\n");
 
     return 0;

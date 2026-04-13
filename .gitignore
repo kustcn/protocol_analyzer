@@ -68,3 +68,7 @@ moc_*
 Thumbs.db
 # Linux
 *.swp
+
+
+# 5. 日志文件
+*.log

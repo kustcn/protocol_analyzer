@@ -35,6 +35,7 @@
 typedef struct {
     char *device;
     char *filter_exp;
+    char *log_file;
     int verbose;
     int count;
     int promiscuous;

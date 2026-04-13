@@ -21,6 +21,7 @@ set(SOURCES
     src/ethernet_parse.c
     src/ipv4_parse.c
     src/utils.c
+    src/logger.c
 )
 
 set(HEADERS
@@ -32,6 +33,7 @@ set(HEADERS
     src/ethernet_parse.h
     src/ipv4_parse.h
     src/utils.h
+    src/logger.h
 )
 
 add_executable(protocol_analyzer ${SOURCES} ${HEADERS})

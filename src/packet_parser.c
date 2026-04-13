@@ -5,6 +5,7 @@
 #include "tcp_handler.h"
 #include "udp_handler.h"
 #include "icmp_handler.h"
+#include "logger.h"
 #include "utils.h"
 #include <stdio.h>
 #include <string.h>
@@ -16,45 +17,48 @@ int init_pcap(const char *device, const char *filter_exp, int timeout, pcap_t **
     bpf_u_int32 mask = 0;
     struct bpf_program fp;
 
+    LOG_DEBUG("Initializing pcap - device: %s, filter: %s", 
+              device ? device : "auto", filter_exp ? filter_exp : "none");
+
     if (device == NULL) {
         device = pcap_lookupdev(errbuf);
         if (device == NULL) {
             fprintf(stderr, "无法找到网络设备: %s\n", errbuf);
             return -1;
         }
-        printf("使用默认设备: %s\n", device);
+        LOG_INFO("使用默认设备: %s", device);
     }
 
     if (pcap_lookupnet(device, &net, &mask, errbuf) == -1) {
-        fprintf(stderr, "获取网络设备信息失败: %s\n", errbuf);
+        LOG_ERROR("获取网络设备信息失败: %s", errbuf);
         net = 0;
         mask = 0;
     }
 
     *handle = pcap_open_live(device, SNAPLEN, 1, timeout, errbuf);
     if (*handle == NULL) {
-        fprintf(stderr, "打开设备失败: %s\n", errbuf);
+        LOG_ERROR("打开设备失败: %s", errbuf);
         return -1;
     }
 
     if (pcap_datalink(*handle) != DLT_EN10MB) {
-        fprintf(stderr, "警告: 设备不是以太网\n");
+        LOG_WARN("警告: 设备不是以太网");
     }
 
     if (filter_exp != NULL && strlen(filter_exp) > 0) {
         if (pcap_compile(*handle, &fp, filter_exp, 0, net) == -1) {
-            fprintf(stderr, "编译过滤器失败: %s\n", pcap_geterr(*handle));
+            LOG_ERROR("编译过滤器失败: %s", pcap_geterr(*handle));
             return -1;
         }
 
         if (pcap_setfilter(*handle, &fp) == -1) {
-            fprintf(stderr, "设置过滤器失败: %s\n", pcap_geterr(*handle));
+            LOG_ERROR("设置过滤器失败: %s", pcap_geterr(*handle));
             pcap_freecode(&fp);
             return -1;
         }
 
         pcap_freecode(&fp);
-        printf("过滤器已应用: %s\n", filter_exp);
+        LOG_INFO("过滤器已应用: %s", filter_exp);
     }
 
     return 0;
@@ -65,7 +69,7 @@ void packet_loop(pcap_t *handle, int count, PacketHandler handler, void *user_da
     const unsigned char *packet;
     int result;
 
-    printf("\n开始捕获数据包 (Ctrl+C 停止)...\n");
+    LOG_INFO("\n开始捕获数据包 (Ctrl+C 停止)...");
     print_separator();
 
     if (count > 0) {
@@ -76,10 +80,10 @@ void packet_loop(pcap_t *handle, int count, PacketHandler handler, void *user_da
             } else if (result == 0) {
                 continue;
             } else if (result == -1) {
-                fprintf(stderr, "捕获错误: %s\n", pcap_geterr(handle));
+                LOG_ERROR("捕获错误: %s", pcap_geterr(handle));
                 break;
             } else if (result == -2) {
-                printf("捕获结束 (达到数据包数量限制)\n");
+                LOG_INFO("捕获结束 (达到数据包数量限制)");
                 break;
             }
         }
@@ -91,7 +95,7 @@ void packet_loop(pcap_t *handle, int count, PacketHandler handler, void *user_da
                 packet_count++;
                 handler(packet, header->len, header, user_data);
             } else if (result == -1) {
-                fprintf(stderr, "捕获错误: %s\n", pcap_geterr(handle));
+                LOG_ERROR("捕获错误: %s", pcap_geterr(handle));
                 break;
             } else if (result == -2) {
                 break;
@@ -104,20 +108,22 @@ void packet_loop(pcap_t *handle, int count, PacketHandler handler, void *user_da
 void parse_packet(const uint8_t *packet, int length, const struct pcap_pkthdr *hdr, void *user_data) {
     (void)user_data;
 
+    LOG_DEBUG("Packet received - length: %d, caplen: %d", hdr->len, hdr->caplen);
+
     print_timestamp(hdr);
     print_separator();
 
     EthernetHeader eth;
     int eth_len = parse_ethernet(packet, length, &eth);
     if (eth_len < 0) {
-        printf("数据包太短, 无法解析以太网头部\n");
+        LOG_WARN("数据包太短, 无法解析以太网头部");
         return;
     }
 
     print_ethernet_info(&eth);
 
     if (eth.ether_type != ETH_TYPE_IPV4) {
-        printf("只支持IPv4协议\n");
+        LOG_WARN("只支持IPv4协议");
         print_separator();
         printf("\n");
         return;
@@ -129,7 +135,7 @@ void parse_packet(const uint8_t *packet, int length, const struct pcap_pkthdr *h
     IPv4Header ip;
     int header_len = parse_ipv4(ip_packet, ip_len, &ip);
     if (header_len < 0) {
-        printf("IP头部解析失败\n");
+        LOG_WARN("IP头部解析失败");
         return;
     }
 
@@ -147,33 +153,41 @@ void parse_packet(const uint8_t *packet, int length, const struct pcap_pkthdr *h
         TCPHeader tcp;
         int tcp_len = parse_tcp(transport_packet, transport_len, &tcp);
         if (tcp_len < 0) {
+            LOG_WARN("TCP header parse failed");
             printf("TCP头部解析失败\n");
             return;
         }
 
         print_tcp_info(&tcp, src_ip, dst_ip);
+        LOG_INFO("TCP: %s:%d -> %s:%d, flags=0x%02x", 
+                 src_ip, tcp.src_port, dst_ip, tcp.dst_port, tcp.flags);
 
     } else if (ip.protocol == IP_PROTO_UDP) {
         UDPHeader udp;
         int udp_len = parse_udp(transport_packet, transport_len, &udp);
         if (udp_len < 0) {
+            LOG_WARN("UDP header parse failed");
             printf("UDP头部解析失败\n");
             return;
         }
 
         print_udp_info(&udp);
+        LOG_INFO("UDP: %d -> %d, length=%d", udp.src_port, udp.dst_port, udp.length);
 
     } else if (ip.protocol == IP_PROTO_ICMP) {
         ICMPHeader icmp;
         int icmp_len = parse_icmp(transport_packet, transport_len, &icmp);
         if (icmp_len < 0) {
+            LOG_WARN("ICMP header parse failed");
             printf("ICMP头部解析失败\n");
             return;
         }
 
         print_icmp_info(&icmp, transport_packet + icmp_len, transport_len - icmp_len);
+        LOG_INFO("ICMP: type=%d, code=%d", icmp.type, icmp.code);
 
     } else {
+        LOG_DEBUG("Unsupported protocol: %d", ip.protocol);
         printf("     不支持的传输层协议: %d\n", ip.protocol);
     }
 
