@@ -29,7 +29,7 @@ void print_banner(void) {
     printf("============================================================\n");
     printf("         网络协议分析器 - Protocol Analyzer v1.0\n");
     printf("============================================================\n");
-    printf("支持协议: Ethernet, IPv4, TCP, UDP\n");
+    printf("支持协议: Ethernet, IPv4, IPv6, TCP, UDP\n");
     printf("功能特点:\n");
     printf("  - 详细TCP三次握手识别\n");
     printf("  - BPF过滤器支持\n");

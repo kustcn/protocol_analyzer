@@ -20,6 +20,7 @@ set(SOURCES
     src/icmp_handler.c
     src/ethernet_parse.c
     src/ipv4_parse.c
+    src/ipv6_parse.c
     src/utils.c
     src/logger.c
 )
@@ -32,6 +33,7 @@ set(HEADERS
     src/icmp_handler.h
     src/ethernet_parse.h
     src/ipv4_parse.h
+    src/ipv6_parse.h
     src/utils.h
     src/logger.h
 )
@@ -46,3 +48,4 @@ target_link_libraries(protocol_analyzer
 target_include_directories(protocol_analyzer PRIVATE 
     ${CMAKE_SOURCE_DIR}/src
 )
+

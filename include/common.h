@@ -24,6 +24,7 @@
 #define IP_PROTO_TCP 6
 #define IP_PROTO_UDP 17
 #define IP_PROTO_ICMP 1
+#define IP_PROTO_ICMPV6 58
 
 #define TCP_FLAG_FIN  0x01
 #define TCP_FLAG_SYN  0x02
@@ -46,3 +47,4 @@ void print_separator(void);
 void print_timestamp(const struct pcap_pkthdr *hdr);
 
 #endif
+

@@ -2,6 +2,7 @@
 #include "packet_parser.h"
 #include "ethernet_parse.h"
 #include "ipv4_parse.h"
+#include "ipv6_parse.h"
 #include "tcp_handler.h"
 #include "udp_handler.h"
 #include "icmp_handler.h"
@@ -122,73 +123,141 @@ void parse_packet(const uint8_t *packet, int length, const struct pcap_pkthdr *h
 
     print_ethernet_info(&eth);
 
-    if (eth.ether_type != ETH_TYPE_IPV4) {
-        LOG_WARN("只支持IPv4协议");
+    if (eth.ether_type == ETH_TYPE_IPV4) {
+        const uint8_t *ip_packet = packet + eth_len;
+        int ip_len = length - eth_len;
+
+        IPv4Header ip;
+        int header_len = parse_ipv4(ip_packet, ip_len, &ip);
+        if (header_len < 0) {
+            LOG_WARN("IP头部解析失败");
+            return;
+        }
+
+        print_ipv4_info(&ip);
+
+        char src_ip[INET_ADDRSTRLEN];
+        char dst_ip[INET_ADDRSTRLEN];
+        format_ip(ip.src_ip, src_ip);
+        format_ip(ip.dst_ip, dst_ip);
+
+        const uint8_t *transport_packet = ip_packet + header_len;
+        int transport_len = ip_len - header_len;
+
+        if (ip.protocol == IP_PROTO_TCP) {
+            TCPHeader tcp;
+            int tcp_len = parse_tcp(transport_packet, transport_len, &tcp);
+            if (tcp_len < 0) {
+                LOG_WARN("TCP header parse failed");
+                printf("TCP头部解析失败\n");
+                return;
+            }
+
+            print_tcp_info(&tcp, src_ip, dst_ip);
+            LOG_INFO("TCP: %s:%d -> %s:%d, flags=0x%02x", 
+                     src_ip, tcp.src_port, dst_ip, tcp.dst_port, tcp.flags);
+
+        } else if (ip.protocol == IP_PROTO_UDP) {
+            UDPHeader udp;
+            int udp_len = parse_udp(transport_packet, transport_len, &udp);
+            if (udp_len < 0) {
+                LOG_WARN("UDP header parse failed");
+                printf("UDP头部解析失败\n");
+                return;
+            }
+
+            print_udp_info(&udp);
+            LOG_INFO("UDP: %d -> %d, length=%d", udp.src_port, udp.dst_port, udp.length);
+
+        } else if (ip.protocol == IP_PROTO_ICMP) {
+            ICMPHeader icmp;
+            int icmp_len = parse_icmp(transport_packet, transport_len, &icmp);
+            if (icmp_len < 0) {
+                LOG_WARN("ICMP header parse failed");
+                printf("ICMP头部解析失败\n");
+                return;
+            }
+
+            print_icmp_info(&icmp, transport_packet + icmp_len, transport_len - icmp_len);
+            LOG_INFO("ICMP: type=%d, code=%d", icmp.type, icmp.code);
+
+        } else {
+            LOG_DEBUG("Unsupported protocol: %d", ip.protocol);
+            printf("     不支持的传输层协议: %d\n", ip.protocol);
+        }
+
+    } else if (eth.ether_type == ETH_TYPE_IPV6) {
+        const uint8_t *ip_packet = packet + eth_len;
+        int ip_len = length - eth_len;
+
+        IPv6Header ip;
+        int header_len = parse_ipv6(ip_packet, ip_len, &ip);
+        if (header_len < 0) {
+            LOG_WARN("IPv6头部解析失败");
+            return;
+        }
+
+        print_ipv6_info(&ip);
+
+        char src_ip[INET6_ADDRSTRLEN];
+        char dst_ip[INET6_ADDRSTRLEN];
+        struct in6_addr src_addr, dst_addr;
+        memcpy(&src_addr.s6_addr, ip.src_ip, IPV6_ADDR_LEN);
+        memcpy(&dst_addr.s6_addr, ip.dst_ip, IPV6_ADDR_LEN);
+        inet_ntop(AF_INET6, &src_addr, src_ip, INET6_ADDRSTRLEN);
+        inet_ntop(AF_INET6, &dst_addr, dst_ip, INET6_ADDRSTRLEN);
+
+        const uint8_t *transport_packet = ip_packet + header_len;
+        int transport_len = ip_len - header_len;
+
+        if (ip.next_header == IP_PROTO_TCP) {
+            TCPHeader tcp;
+            int tcp_len = parse_tcp(transport_packet, transport_len, &tcp);
+            if (tcp_len < 0) {
+                LOG_WARN("TCP header parse failed");
+                printf("TCP头部解析失败\n");
+                return;
+            }
+
+            print_tcp_info(&tcp, src_ip, dst_ip);
+            LOG_INFO("TCP: %s:%d -> %s:%d, flags=0x%02x", 
+                     src_ip, tcp.src_port, dst_ip, tcp.dst_port, tcp.flags);
+
+        } else if (ip.next_header == IP_PROTO_UDP) {
+            UDPHeader udp;
+            int udp_len = parse_udp(transport_packet, transport_len, &udp);
+            if (udp_len < 0) {
+                LOG_WARN("UDP header parse failed");
+                printf("UDP头部解析失败\n");
+                return;
+            }
+
+            print_udp_info(&udp);
+            LOG_INFO("UDP: %d -> %d, length=%d", udp.src_port, udp.dst_port, udp.length);
+
+        } else if (ip.next_header == IP_PROTO_ICMPV6) {
+            // IPv6 uses ICMPv6 (type 58), which has the same structure as ICMP
+            ICMPHeader icmp;
+            int icmp_len = parse_icmp(transport_packet, transport_len, &icmp);
+            if (icmp_len < 0) {
+                LOG_WARN("ICMPv6 header parse failed");
+                printf("ICMPv6头部解析失败\n");
+                return;
+            }
+
+            print_icmp_info(&icmp, transport_packet + icmp_len, transport_len - icmp_len);
+            LOG_INFO("ICMPv6: type=%d, code=%d", icmp.type, icmp.code);
+
+        } else {
+            LOG_DEBUG("Unsupported protocol: %d", ip.next_header);
+            printf("     不支持的传输层协议: %d\n", ip.next_header);
+        }
+
+    } else {
+        LOG_WARN("只支持IPv4和IPv6协议");
         print_separator();
         printf("\n");
         return;
-    }
-
-    const uint8_t *ip_packet = packet + eth_len;
-    int ip_len = length - eth_len;
-
-    IPv4Header ip;
-    int header_len = parse_ipv4(ip_packet, ip_len, &ip);
-    if (header_len < 0) {
-        LOG_WARN("IP头部解析失败");
-        return;
-    }
-
-    print_ipv4_info(&ip);
-
-    char src_ip[INET_ADDRSTRLEN];
-    char dst_ip[INET_ADDRSTRLEN];
-    format_ip(ip.src_ip, src_ip);
-    format_ip(ip.dst_ip, dst_ip);
-
-    const uint8_t *transport_packet = ip_packet + header_len;
-    int transport_len = ip_len - header_len;
-
-    if (ip.protocol == IP_PROTO_TCP) {
-        TCPHeader tcp;
-        int tcp_len = parse_tcp(transport_packet, transport_len, &tcp);
-        if (tcp_len < 0) {
-            LOG_WARN("TCP header parse failed");
-            printf("TCP头部解析失败\n");
-            return;
-        }
-
-        print_tcp_info(&tcp, src_ip, dst_ip);
-        LOG_INFO("TCP: %s:%d -> %s:%d, flags=0x%02x", 
-                 src_ip, tcp.src_port, dst_ip, tcp.dst_port, tcp.flags);
-
-    } else if (ip.protocol == IP_PROTO_UDP) {
-        UDPHeader udp;
-        int udp_len = parse_udp(transport_packet, transport_len, &udp);
-        if (udp_len < 0) {
-            LOG_WARN("UDP header parse failed");
-            printf("UDP头部解析失败\n");
-            return;
-        }
-
-        print_udp_info(&udp);
-        LOG_INFO("UDP: %d -> %d, length=%d", udp.src_port, udp.dst_port, udp.length);
-
-    } else if (ip.protocol == IP_PROTO_ICMP) {
-        ICMPHeader icmp;
-        int icmp_len = parse_icmp(transport_packet, transport_len, &icmp);
-        if (icmp_len < 0) {
-            LOG_WARN("ICMP header parse failed");
-            printf("ICMP头部解析失败\n");
-            return;
-        }
-
-        print_icmp_info(&icmp, transport_packet + icmp_len, transport_len - icmp_len);
-        LOG_INFO("ICMP: type=%d, code=%d", icmp.type, icmp.code);
-
-    } else {
-        LOG_DEBUG("Unsupported protocol: %d", ip.protocol);
-        printf("     不支持的传输层协议: %d\n", ip.protocol);
     }
 
     print_separator();
