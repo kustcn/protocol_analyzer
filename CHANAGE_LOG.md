@@ -1,5 +1,20 @@
 # CHANGE LOG
 
+## 2026-04-22
+
+Added IPv6 support to protocol analyzer
+
+- Create ipv6_parse.h and ipv6_parse.c for IPv6 protocol handling
+- Add IPv6Header struct with version, traffic class, flow label, payload length, next header, hop limit, and source/destination IPv6 addresses
+- Implement parse_ipv6() to parse 40-byte IPv6 headers and extract all fields
+- Implement print_ipv6_info() to format and display IPv6 information with TCP/UDP/ICMPv6 protocol identification
+- Add IP_PROTO_ICMPV6 (58) constant to common.h
+- Include ipv6_parse.h in packet_parser.c for protocol handling
+- Modify parse_packet() function to handle ETH_TYPE_IPV6 (0x86DD) packets
+- Support IPv6 TCP, UDP, and ICMPv6 protocol parsing
+- Add ipv6_parse.c and ipv6_parse.h to CMakeLists.txt source and header lists
+- Update banner information in main.c to display IPv6 support
+
 ## 2026-04-13
 
 Added log file logging functionality
